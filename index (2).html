@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ben Tuck Parlay Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --card-hover: #334155;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #22c55e;
+      --accent-dim: #16a34a;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --border: #334155;
+      --radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    header h1 {
+      font-size: 1.85rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.35rem;
+    }
+
+    header p {
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .last-updated {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.5rem;
+    }
+
+    /* Season Balance */
+    .balance-card {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem 2rem;
+      text-align: center;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+
+    .balance-card .label {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .balance-card .value {
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .balance-card .value.negative { color: var(--danger); }
+    .balance-card .value.positive { color: var(--accent); }
+    .balance-card .value.zero { color: var(--muted); }
+
+    /* Stats row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.1rem;
+      text-align: center;
+    }
+
+    .stat-card .stat-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.3rem;
+    }
+
+    .stat-card .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    /* Charts */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+
+    @media (max-width: 700px) {
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .chart-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+    }
+
+    .chart-card h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--muted);
+    }
+
+    .chart-container {
+      position: relative;
+      height: 260px;
+    }
+
+    /* Leaderboard */
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .table-wrapper {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    th {
+      background: #0f172a;
+      text-align: left;
+      padding: 0.85rem 1rem;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    th:hover {
+      color: var(--text);
+    }
+
+    th .sort-icon {
+      opacity: 0.4;
+      margin-left: 0.25rem;
+    }
+
+    th.active .sort-icon {
+      opacity: 1;
+    }
+
+    td {
+      padding: 0.8rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: var(--card-hover);
+    }
+
+    .rank {
+      font-weight: 700;
+      color: var(--muted);
+      width: 2.5rem;
+    }
+
+    .name {
+      font-weight: 600;
+    }
+
+    .pct {
+      font-weight: 700;
+    }
+
+    .pct.high { color: var(--accent); }
+    .pct.mid { color: var(--warning); }
+    .pct.low { color: var(--danger); }
+
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .badge.perfect { background: rgba(34, 197, 94, 0.15); color: var(--accent); }
+    .badge.zero { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+
+    /* Loading / Error */
+    .status {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--muted);
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1rem;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    footer {
+      text-align: center;
+      padding: 1.5rem 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    .refresh-btn {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.45rem 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      margin-top: 0.75rem;
+      transition: background 0.15s;
+    }
+
+    .refresh-btn:hover {
+      background: var(--card-hover);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🏈 Ben Tuck Parlay Tracker</h1>
+      <p>Live standings from the group sheet</p>
+      <div class="last-updated" id="lastUpdated">Loading...</div>
+      <button class="refresh-btn" onclick="loadData()">↻ Refresh data</button>
+    </header>
+
+    <div id="app">
+      <div class="status">
+        <div class="spinner"></div>
+        Loading latest results...
+      </div>
+    </div>
+
+    <footer>
+      Data auto-updates from the shared Google Sheet · Built for the crew
+    </footer>
+  </div>
+
+  <script>
+    const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1--q_aYBw56VA_Ry_uRCCYWQH9hCt3hoawdkM0Hy7kac/export?format=csv&gid=0";
+
+    let players = [];
+    let seasonBalance = null;
+    let charts = {};
+
+    async function loadData() {
+      const app = document.getElementById("app");
+      app.innerHTML = `
+        <div class="status">
+          <div class="spinner"></div>
+          Loading latest results...
+        </div>`;
+
+      try {
+        // Cache-bust so we always get fresh data
+        const url = SHEET_CSV_URL + "&t=" + Date.now();
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Could not fetch sheet");
+
+        const text = await res.text();
+        parseCSV(text);
+        render();
+        document.getElementById("lastUpdated").textContent =
+          "Last updated: " + new Date().toLocaleString();
+      } catch (err) {
+        console.error(err);
+        app.innerHTML = `
+          <div class="status error">
+            Couldn’t load the sheet.<br>
+            Make sure it’s shared as “Anyone with the link can view”.<br><br>
+            <button class="refresh-btn" onclick="loadData()">Try again</button>
+          </div>`;
+      }
+    }
+
+    function parseCSV(text) {
+      const lines = text.trim().split(/\r?\n/);
+      players = [];
+      seasonBalance = null;
+
+      // Skip header
+      for (let i = 1; i < lines.length; i++) {
+        const cols = parseCSVLine(lines[i]);
+        if (!cols.length) continue;
+
+        const name = (cols[0] || "").trim();
+        if (!name) {
+          // Look for Season Balance row
+          if ((cols[1] || "").toLowerCase().includes("season balance")) {
+            const balStr = (cols[2] || "").replace(/[$,]/g, "").trim();
+            seasonBalance = parseFloat(balStr) || 0;
+          }
+          continue;
+        }
+
+        const top5 = parseInt(cols[1]) || 0;
+        const lastPlace = parseInt(cols[2]) || 0;
+        const parlayRecord = (cols[3] || "").trim();
+        const pctStr = (cols[4] || "").replace("%", "").trim();
+        const pct = pctStr === "" ? null : parseFloat(pctStr);
+
+        let wins = 0, total = 0;
+        if (parlayRecord && parlayRecord.includes("/")) {
+          const parts = parlayRecord.split("/");
+          wins = parseInt(parts[0]) || 0;
+          total = parseInt(parts[1]) || 0;
+        }
+
+        players.push({
+          name,
+          top5,
+          lastPlace,
+          parlayRecord: parlayRecord || "–",
+          pct,
+          wins,
+          total
+        });
+      }
+    }
+
+    function parseCSVLine(line) {
+      const result = [];
+      let current = "";
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') {
+          inQuotes = !inQuotes;
+        } else if (c === "," && !inQuotes) {
+          result.push(current);
+          current = "";
+        } else {
+          current += c;
+        }
+      }
+      result.push(current);
+      return result;
+    }
+
+    function render() {
+      const app = document.getElementById("app");
+
+      // Sort by Top 5 desc, then by % desc, then name
+      const sorted = [...players].sort((a, b) => {
+        if (b.top5 !== a.top5) return b.top5 - a.top5;
+        const ap = a.pct ?? -1;
+        const bp = b.pct ?? -1;
+        if (bp !== ap) return bp - ap;
+        return a.name.localeCompare(b.name);
+      });
+
+      const withParlays = players.filter(p => p.total > 0);
+      const avgPct = withParlays.length
+        ? withParlays.reduce((s, p) => s + (p.pct || 0), 0) / withParlays.length
+        : 0;
+      const totalTop5 = players.reduce((s, p) => s + p.top5, 0);
+      const totalLast = players.reduce((s, p) => s + p.lastPlace, 0);
+      const perfects = players.filter(p => p.pct === 100).length;
+
+      let balanceClass = "zero";
+      let balanceDisplay = "–";
+      if (seasonBalance !== null) {
+        balanceClass = seasonBalance > 0 ? "positive" : seasonBalance < 0 ? "negative" : "zero";
+        balanceDisplay = (seasonBalance >= 0 ? "+$" : "-$") + Math.abs(seasonBalance).toFixed(0);
+      }
+
+      app.innerHTML = `
+        <div class="balance-card">
+          <div class="label">Season Balance</div>
+          <div class="value ${balanceClass}">${balanceDisplay}</div>
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-card">
+            <div class="stat-label">Players</div>
+            <div class="stat-value">${players.length}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Total Top 5s</div>
+            <div class="stat-value">${totalTop5}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Last Places</div>
+            <div class="stat-value">${totalLast}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Perfect Parlays</div>
+            <div class="stat-value">${perfects}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Avg Parlay %</div>
+            <div class="stat-value">${avgPct.toFixed(0)}%</div>
+          </div>
+        </div>
+
+        <div class="charts-grid">
+          <div class="chart-card">
+            <h3>Top 5 Finishes</h3>
+            <div class="chart-container">
+              <canvas id="top5Chart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3>Parlay Win %</h3>
+            <div class="chart-container">
+              <canvas id="pctChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title">🏆 Leaderboard</div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Top 5</th>
+                <th>Last Place</th>
+                <th>Parlay Record</th>
+                <th>Win %</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${sorted.map((p, i) => {
+                let pctClass = "";
+                let pctText = "–";
+                if (p.pct !== null) {
+                  pctText = p.pct.toFixed(0) + "%";
+                  if (p.pct >= 80) pctClass = "high";
+                  else if (p.pct >= 40) pctClass = "mid";
+                  else pctClass = "low";
+                }
+
+                let recordBadge = p.parlayRecord;
+                if (p.pct === 100) {
+                  recordBadge = `<span class="badge perfect">${p.parlayRecord}</span>`;
+                } else if (p.pct === 0 && p.total > 0) {
+                  recordBadge = `<span class="badge zero">${p.parlayRecord}</span>`;
+                }
+
+                return `
+                  <tr>
+                    <td class="rank">${i + 1}</td>
+                    <td class="name">${escapeHtml(p.name)}</td>
+                    <td>${p.top5 || "–"}</td>
+                    <td>${p.lastPlace || "–"}</td>
+                    <td>${recordBadge}</td>
+                    <td class="pct ${pctClass}">${pctText}</td>
+                  </tr>`;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      // Charts
+      const chartPlayers = sorted.filter(p => p.top5 > 0 || p.total > 0);
+
+      // Destroy old charts if any
+      if (charts.top5) charts.top5.destroy();
+      if (charts.pct) charts.pct.destroy();
+
+      const top5Ctx = document.getElementById("top5Chart").getContext("2d");
+      charts.top5 = new Chart(top5Ctx, {
+        type: "bar",
+        data: {
+          labels: chartPlayers.map(p => p.name),
+          datasets: [{
+            label: "Top 5 Finishes",
+            data: chartPlayers.map(p => p.top5),
+            backgroundColor: "rgba(34, 197, 94, 0.7)",
+            borderColor: "rgba(34, 197, 94, 1)",
+            borderWidth: 1,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              ticks: { color: "#94a3b8", maxRotation: 45, minRotation: 45 },
+              grid: { display: false }
+            },
+            y: {
+              beginAtZero: true,
+              ticks: { color: "#94a3b8", stepSize: 1 },
+              grid: { color: "rgba(51, 65, 85, 0.5)" }
+            }
+          }
+        }
+      });
+
+      const pctPlayers = chartPlayers.filter(p => p.pct !== null);
+      const pctCtx = document.getElementById("pctChart").getContext("2d");
+      charts.pct = new Chart(pctCtx, {
+        type: "bar",
+        data: {
+          labels: pctPlayers.map(p => p.name),
+          datasets: [{
+            label: "Win %",
+            data: pctPlayers.map(p => p.pct),
+            backgroundColor: pctPlayers.map(p => {
+              if (p.pct >= 80) return "rgba(34, 197, 94, 0.7)";
+              if (p.pct >= 40) return "rgba(245, 158, 11, 0.7)";
+              return "rgba(239, 68, 68, 0.7)";
+            }),
+            borderColor: pctPlayers.map(p => {
+              if (p.pct >= 80) return "rgba(34, 197, 94, 1)";
+              if (p.pct >= 40) return "rgba(245, 158, 11, 1)";
+              return "rgba(239, 68, 68, 1)";
+            }),
+            borderWidth: 1,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              ticks: { color: "#94a3b8", maxRotation: 45, minRotation: 45 },
+              grid: { display: false }
+            },
+            y: {
+              beginAtZero: true,
+              max: 100,
+              ticks: {
+                color: "#94a3b8",
+                callback: v => v + "%"
+              },
+              grid: { color: "rgba(51, 65, 85, 0.5)" }
+            }
+          }
+        }
+      });
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    // Initial load
+    loadData();
+  </script>
+</body>
+</html>
